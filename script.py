@@ -104,14 +104,15 @@ async def auto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for job in current_jobs:
         job.schedule_removal()
 
+    tz = ZoneInfo("Asia/Ho_Chi_Minh")
     # tạo job mới
-    context.job_queue.run_repeating(
-        push_gold,
-        interval=3600,
-        first=5,
-        chat_id=chat_id,
-        name=str(chat_id)
-    )
+    for hour in range(24):
+        context.job_queue.run_daily(
+            push_gold,
+            time=time(hour=hour, minute=0, tzinfo=tz),
+            chat_id=chat_id,
+            name=f"{chat_id}_{hour}"
+        )
 
 
 # ====== COMMAND /off ======
