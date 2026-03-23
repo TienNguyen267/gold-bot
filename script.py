@@ -225,8 +225,8 @@ async def auto_fuel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.job_queue.run_repeating(
         push_fuel_only,
-        interval=3600,
-        first=delay,
+        interval=120,
+        first=0,
         chat_id=chat_id,
         name=f"fuel_{chat_id}"
     )
@@ -255,7 +255,7 @@ async def push_fuel_only(context: ContextTypes.DEFAULT_TYPE):
     now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y %H:%M")
 
     msg = f"⛽ Giá xăng dầu\n🕒 {now}\n\n"
-
+    print("RUN GOLD JOB")
     for i, item in enumerate(data[:5], start=1):
         msg += f"{i}. {item['name']} - {item['price']}\n"
 
