@@ -75,11 +75,17 @@ async def gold(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(msg)
 
+def seconds_to_next_hour():
+    tz = ZoneInfo("Asia/Ho_Chi_Minh")
+    now = datetime.now(tz)
+
+    next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+
+    return int((next_hour - now).total_seconds())
 
 # ====== AUTO PUSH ======
 async def push_gold(context: ContextTypes.DEFAULT_TYPE):
     data = get_gold_table()
-
     if not data:
         return
 
@@ -97,22 +103,24 @@ async def push_gold(context: ContextTypes.DEFAULT_TYPE):
 async def auto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
 
-    await update.message.reply_text("⏰ Đã bật tự động mỗi giờ")
+    await update.message.reply_text("⏰ Auto mỗi giờ (đúng giờ tròn) đã bật")
 
     # xoá job cũ
-    current_jobs = context.job_queue.get_jobs_by_name(str(chat_id))
-    for job in current_jobs:
-        job.schedule_removal()
+    jobs = context.job_queue.jobs()
+    for job in jobs:
+        if str(chat_id) in job.name:
+            job.schedule_removal()
 
-    tz = ZoneInfo("Asia/Ho_Chi_Minh")
-    # tạo job mới
-    for hour in range(24):
-        context.job_queue.run_daily(
-            push_gold,
-            time=time(hour=hour, minute=0, tzinfo=tz),
-            chat_id=chat_id,
-            name=f"{chat_id}_{hour}"
-        )
+    delay = seconds_to_next_hour()
+
+    # chạy đúng giờ tròn rồi lặp mỗi 1h
+    context.job_queue.run_repeating(
+        push_gold,
+        interval=3600,
+        first=delay,
+        chat_id=chat_id,
+        name=str(chat_id)
+    )
 
 
 # ====== COMMAND /off ======
