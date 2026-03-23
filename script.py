@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
@@ -64,7 +65,7 @@ def format_gold_table_mono(data):
 
 # ====== COMMAND /gold ======
 async def gold(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    now = datetime.now().strftime("%d/%m/%Y %H:%M")
+    now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y %H:%M")
 
     data = get_gold_table()
 
