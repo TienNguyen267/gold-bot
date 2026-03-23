@@ -225,8 +225,8 @@ async def auto_fuel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.job_queue.run_repeating(
         push_fuel_only,
-        interval=120,
-        first=0,
+        interval=3600,
+        first=delay,
         chat_id=chat_id,
         name=f"fuel_{chat_id}"
     )
