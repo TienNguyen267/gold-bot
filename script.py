@@ -20,7 +20,6 @@ def get_gold_table():
         soup = BeautifulSoup(res.text, "html.parser")
 
         data = []
-
         tables = soup.find_all("table")
 
         for table in tables:
@@ -49,17 +48,16 @@ def get_gold_table():
     return []
 
 
-# ====== FORMAT TABLE MONO ======
-def format_gold_table_mono(data):
+# ====== FORMAT ======
+def format_gold_table(data):
     msg = "📊 Giá vàng hôm nay 🇻🇳\n\n"
 
-    for item in data[:8]:  # giới hạn 8 dòng cho gọn
+    for item in data[:8]:
         msg += f"""🔸 {item['name']}
 💰 {item['buy']} | {item['sell']}
 📊 Hôm qua: {item['y_buy']} | {item['y_sell']}
 
 """
-
     return msg
 
 
@@ -73,10 +71,9 @@ async def gold(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Không lấy được dữ liệu")
         return
 
-    msg = f"🕒 {now}\n\n"
-    msg += format_gold_table_mono(data)
+    msg = f"🕒 {now}\n\n" + format_gold_table(data)
 
-    await update.message.reply_text(msg, parse_mode="Markdown")
+    await update.message.reply_text(msg)
 
 
 # ====== AUTO PUSH ======
@@ -86,34 +83,28 @@ async def push_gold(context: ContextTypes.DEFAULT_TYPE):
     if not data:
         return
 
-    now = datetime.now().strftime("%d/%m/%Y %H:%M")
+    now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y %H:%M")
 
-    msg = f"⏰ Cập nhật giá vàng\n🕒 {now}\n\n"
-    msg += format_gold_table_mono(data)
+    msg = f"⏰ Cập nhật giá vàng\n🕒 {now}\n\n" + format_gold_table(data)
 
     await context.bot.send_message(
         chat_id=context.job.chat_id,
-        text=msg,
-        parse_mode="Markdown"
+        text=msg
     )
 
 
-# ====== COMMAND /start ======
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ====== COMMAND /auto ======
+async def auto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
 
-    await update.message.reply_text(
-        "🤖 Bot giá vàng\n\n"
-        "📊 Gõ /gold để xem ngay\n"
-        "⏰ Tự động cập nhật mỗi giờ"
-    )
+    await update.message.reply_text("⏰ Đã bật tự động mỗi giờ")
 
-    # xoá job cũ nếu có
+    # xoá job cũ
     current_jobs = context.job_queue.get_jobs_by_name(str(chat_id))
     for job in current_jobs:
         job.schedule_removal()
 
-    # tạo job mới (mỗi 1 giờ)
+    # tạo job mới
     context.job_queue.run_repeating(
         push_gold,
         interval=3600,
@@ -123,12 +114,35 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# ====== COMMAND /off ======
+async def off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    current_jobs = context.job_queue.get_jobs_by_name(str(chat_id))
+    for job in current_jobs:
+        job.schedule_removal()
+
+    await update.message.reply_text("❌ Đã tắt auto")
+
+
+# ====== COMMAND /start ======
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🤖 Bot giá vàng\n\n"
+        "📊 /gold → xem giá ngay\n"
+        "⏰ /auto → bật tự động mỗi giờ\n"
+        "❌ /off → tắt tự động"
+    )
+
+
 # ====== MAIN ======
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("gold", gold))
+    app.add_handler(CommandHandler("auto", auto))
+    app.add_handler(CommandHandler("off", off))
 
     print("✅ Bot đang chạy...")
     app.run_polling()
