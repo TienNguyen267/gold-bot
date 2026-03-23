@@ -134,13 +134,71 @@ async def off(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Đã tắt auto")
 
 
+def get_fuel_data():
+    try:
+        url = "https://www.pvoil.com.vn/tin-gia-xang-dau"
+        res = requests.get(url, headers=HEADERS, timeout=10)
+        soup = BeautifulSoup(res.text, "html.parser")
+
+        data = []
+
+        tables = soup.find_all("table")
+
+        for table in tables:
+            rows = table.find_all("tr")
+
+            for row in rows:
+                cols = row.find_all("td")
+
+                if len(cols) >= 3:
+                    name = cols[1].text.strip()
+                    price = cols[2].text.strip()
+
+                    data.append({
+                        "name": name,
+                        "price": price
+                    })
+
+        return data
+
+    except Exception as e:
+        print("FUEL error:", e)
+
+    return []
+
+
+def format_fuel_table(data):
+    msg = "⛽ Giá xăng dầu Việt Nam\n\n"
+
+    for i, item in enumerate(data[:5], start=1):
+        msg += f"{i}. {item['name']}\n💰 {item['price']}\n\n"
+
+    return msg
+
+
+async def fuel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = get_fuel_data()
+
+    if not data:
+        await update.message.reply_text("❌ Không lấy được giá xăng")
+        return
+
+    now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y %H:%M")
+
+    msg = f"🕒 {now}\n\n"
+    msg += format_fuel_table(data)
+
+    await update.message.reply_text(msg)
+
+
 # ====== COMMAND /start ======
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 Bot giá vàng\n\n"
-        "📊 /gold → xem giá ngay\n"
-        "⏰ /auto → bật tự động mỗi giờ\n"
-        "❌ /off → tắt tự động"
+        "🤖 Bot giá\n\n"
+        "📊 /gold → giá vàng\n"
+        "⛽ /fuel → giá xăng\n"
+        "⏰ /auto → auto vàng\n"
+        "❌ /off → tắt auto"
     )
 
 
@@ -152,6 +210,7 @@ def main():
     app.add_handler(CommandHandler("gold", gold))
     app.add_handler(CommandHandler("auto", auto))
     app.add_handler(CommandHandler("off", off))
+    app.add_handler(CommandHandler("fuel", fuel))
 
     print("✅ Bot đang chạy...")
     app.run_polling()
