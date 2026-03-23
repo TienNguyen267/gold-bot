@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from telegram import Update
+from telegram import Update, BotCommand, MenuButtonCommands
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 BOT_TOKEN = "8144624079:AAH3Ng1L6Wrth0iYpB4hLK3KxweJNfgzvNU"
@@ -11,6 +11,23 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0",
     "Accept-Language": "vi-VN,vi;q=0.9"
 }
+
+async def setup_commands(app):
+    commands = [
+        BotCommand("start", "Khởi động bot"),
+        BotCommand("gold", "Giá vàng"),
+        BotCommand("fuel", "Giá xăng"),
+        BotCommand("auto_gold", "Auto giá vàng"),
+        BotCommand("auto_fuel", "Auto giá xăng"),
+        BotCommand("off", "Tắt auto"),
+    ]
+
+    await app.bot.set_my_commands(commands)
+
+async def setup_menu(app):
+    await app.bot.set_chat_menu_button(
+        menu_button=MenuButtonCommands()
+    )
 
 # ====== SCRAPE TABLE ======
 def get_gold_table():
@@ -276,6 +293,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     "❌ /off → tắt tất cả"
 )
 
+async def post_init(app):
+    await setup_commands(app)
+    await setup_menu(app)
 
 # ====== MAIN ======
 def main():
@@ -288,7 +308,7 @@ def main():
     app.add_handler(CommandHandler("off", off))
     app.add_handler(CommandHandler("fuel", fuel))
     
-
+    app.post_init = post_init
     print("✅ Bot đang chạy...")
     app.run_polling()
 
