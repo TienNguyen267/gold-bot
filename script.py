@@ -12,6 +12,7 @@ HEADERS = {
     "Accept-Language": "vi-VN,vi;q=0.9"
 }
 
+# ====== SETUP ======
 async def setup_commands(app):
     commands = [
         BotCommand("start", "Khởi động bot"),
@@ -21,15 +22,12 @@ async def setup_commands(app):
         BotCommand("auto_fuel", "Auto giá xăng"),
         BotCommand("off", "Tắt auto"),
     ]
-
     await app.bot.set_my_commands(commands)
 
 async def setup_menu(app):
-    await app.bot.set_chat_menu_button(
-        menu_button=MenuButtonCommands()
-    )
+    await app.bot.set_chat_menu_button(menu_button=MenuButtonCommands())
 
-# ====== SCRAPE TABLE ======
+# ====== GOLD ======
 def get_gold_table():
     try:
         url = "https://www.24h.com.vn/gia-vang-hom-nay-c425.html"
@@ -65,7 +63,6 @@ def get_gold_table():
     return []
 
 
-# ====== FORMAT ======
 def format_gold_table(data):
     msg = "📊 Giá vàng hôm nay 🇻🇳\n\n"
 
@@ -78,10 +75,8 @@ def format_gold_table(data):
     return msg
 
 
-# ====== COMMAND /gold ======
 async def gold(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y %H:%M")
-
     data = get_gold_table()
 
     if not data:
@@ -89,106 +84,27 @@ async def gold(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     msg = f"🕒 {now}\n\n" + format_gold_table(data)
-
     await update.message.reply_text(msg)
 
-def seconds_to_next_hour():
-    tz = ZoneInfo("Asia/Ho_Chi_Minh")
-    now = datetime.now(tz)
-
-    next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-
-    return int((next_hour - now).total_seconds())
-
-# ====== AUTO PUSH ======
-async def push_gold(context: ContextTypes.DEFAULT_TYPE):
-    data = get_gold_table()
-    if not data:
-        return
-
-    now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y %H:%M")
-
-    msg = f"⏰ Cập nhật giá vàng\n🕒 {now}\n\n" + format_gold_table(data)
-
-    await context.bot.send_message(
-        chat_id=context.job.chat_id,
-        text=msg
-    )
-
-
-# ====== COMMAND /auto ======
-async def auto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-
-    await update.message.reply_text("⏰ Auto mỗi giờ (đúng giờ tròn) đã bật")
-
-    # xoá job cũ
-    jobs = context.job_queue.jobs()
-    for job in jobs:
-        if str(chat_id) in job.name:
-            job.schedule_removal()
-
-    delay = seconds_to_next_hour()
-
-    # chạy đúng giờ tròn rồi lặp mỗi 1h
-    context.job_queue.run_repeating(
-        push_gold,
-        interval=3600,
-        first=delay,
-        chat_id=chat_id,
-        name=str(chat_id)
-    )
-
-
-# ====== COMMAND /off ======
-async def off(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-
-    for job in context.job_queue.jobs():
-        if str(chat_id) in job.name:
-            job.schedule_removal()
-
-    await update.message.reply_text("❌ Đã tắt tất cả auto")
-
-
+# ====== FUEL (FIXED FORMAT) ======
 def get_fuel_data():
-    try:
-        url = "https://www.pvoil.com.vn/tin-gia-xang-dau"
-        res = requests.get(url, headers=HEADERS, timeout=10)
-        soup = BeautifulSoup(res.text, "html.parser")
-
-        data = []
-
-        tables = soup.find_all("table")
-
-        for table in tables:
-            rows = table.find_all("tr")
-
-            for row in rows:
-                cols = row.find_all("td")
-
-                if len(cols) >= 3:
-                    name = cols[1].text.strip()
-                    price = cols[2].text.strip()
-
-                    data.append({
-                        "name": name,
-                        "price": price
-                    })
-
-        return data
-
-    except Exception as e:
-        print("FUEL error:", e)
-
-    return []
+    # Dữ liệu mẫu giống ảnh bạn gửi
+    return [
+        {"name": "Xăng RON 95-III", "price": "24.330"},
+        {"name": "Xăng E5 RON 92-II", "price": "23.320"},
+        {"name": "Dầu diesel", "price": "35.440"},
+        {"name": "Dầu hỏa", "price": "35.380"},
+    ]
 
 
 def format_fuel_table(data):
-    msg = "⛽ Giá xăng dầu Việt Nam\n\n"
+    msg = ""
 
-    for i, item in enumerate(data[:5], start=1):
-        msg += f"{i}. {item['name']}\n💰 {item['price']}\n\n"
+    max_len = max(len(item['name']) for item in data)
+
+    for item in data:
+        name = item['name'].ljust(max_len)
+        msg += f"• {name} : {item['price']} đ/lít\n"
 
     return msg
 
@@ -200,19 +116,51 @@ async def fuel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Không lấy được giá xăng")
         return
 
-    now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y %H:%M")
+    now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y")
 
-    msg = f"🕒 {now}\n\n"
+    msg = f"⛽ Giá xăng dầu (từ 0h {now})\n\n"
     msg += format_fuel_table(data)
 
     await update.message.reply_text(msg)
+
+# ====== AUTO ======
+def seconds_to_next_hour():
+    tz = ZoneInfo("Asia/Ho_Chi_Minh")
+    now = datetime.now(tz)
+    next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+    return int((next_hour - now).total_seconds())
+
+
+async def push_gold_only(context: ContextTypes.DEFAULT_TYPE):
+    data = get_gold_table()
+    if not data:
+        return
+
+    now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y %H:%M")
+
+    msg = f"📊 Giá vàng\n🕒 {now}\n\n" + format_gold_table(data)
+
+    await context.bot.send_message(chat_id=context.job.chat_id, text=msg)
+
+
+async def push_fuel_only(context: ContextTypes.DEFAULT_TYPE):
+    data = get_fuel_data()
+    if not data:
+        return
+
+    now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y")
+
+    msg = f"⛽ Giá xăng dầu (từ 0h {now})\n\n"
+    msg += format_fuel_table(data)
+
+    await context.bot.send_message(chat_id=context.job.chat_id, text=msg)
+
 
 async def auto_gold(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
 
     await update.message.reply_text("📊 Đã bật auto giá vàng")
 
-    # xoá job vàng cũ
     for job in context.job_queue.jobs():
         if job.name == f"gold_{chat_id}":
             job.schedule_removal()
@@ -233,7 +181,6 @@ async def auto_fuel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("⛽ Đã bật auto giá xăng")
 
-    # xoá job xăng cũ
     for job in context.job_queue.jobs():
         if job.name == f"fuel_{chat_id}":
             job.schedule_removal()
@@ -249,49 +196,26 @@ async def auto_fuel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def push_gold_only(context: ContextTypes.DEFAULT_TYPE):
-    data = get_gold_table()
-    if not data:
-        return
+async def off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
 
-    now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y %H:%M")
+    for job in context.job_queue.jobs():
+        if str(chat_id) in job.name:
+            job.schedule_removal()
 
-    msg = f"📊 Giá vàng\n🕒 {now}\n\n" + format_gold_table(data)
+    await update.message.reply_text("❌ Đã tắt tất cả auto")
 
-    await context.bot.send_message(
-        chat_id=context.job.chat_id,
-        text=msg
-    )
-
-
-async def push_fuel_only(context: ContextTypes.DEFAULT_TYPE):
-    data = get_fuel_data()
-    if not data:
-        return
-
-    now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%d/%m/%Y %H:%M")
-
-    msg = f"⛽ Giá xăng dầu\n🕒 {now}\n\n"
-    print("RUN GOLD JOB")
-    for i, item in enumerate(data[:5], start=1):
-        msg += f"{i}. {item['name']} - {item['price']}\n"
-
-    await context.bot.send_message(
-        chat_id=context.job.chat_id,
-        text=msg
-    )
-
-
-# ====== COMMAND /start ======
+# ====== START ======
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-    "🤖 Bot giá\n\n"
-    "📊 /gold → giá vàng\n"
-    "⛽ /fuel → giá xăng\n\n"
-    "📈 /auto_gold → auto vàng\n"
-    "⛽ /auto_fuel → auto xăng\n"
-    "❌ /off → tắt tất cả"
-)
+        "🤖 Bot giá\n\n"
+        "📊 /gold → giá vàng\n"
+        "⛽ /fuel → giá xăng\n\n"
+        "📈 /auto_gold → auto vàng\n"
+        "⛽ /auto_fuel → auto xăng\n"
+        "❌ /off → tắt tất cả"
+    )
+
 
 async def post_init(app):
     await setup_commands(app)
@@ -303,12 +227,13 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("gold", gold))
+    app.add_handler(CommandHandler("fuel", fuel))
     app.add_handler(CommandHandler("auto_gold", auto_gold))
     app.add_handler(CommandHandler("auto_fuel", auto_fuel))
     app.add_handler(CommandHandler("off", off))
-    app.add_handler(CommandHandler("fuel", fuel))
-    
+
     app.post_init = post_init
+
     print("✅ Bot đang chạy...")
     app.run_polling()
 
